@@ -1,0 +1,184 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 12000
+#define BUFFER_SIZE 1024
+
+int main() {
+    int serverSocket, clientSocket;
+    struct sockaddr_in serverAddr, clientAddr;
+    socklen_t addr_size;
+    char buffer[BUFFER_SIZE];
+
+    // 创建套接字
+    serverSocket = socket(PF_INET, SOCK_STREAM, 0);
+    if (serverSocket < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 配置服务器地址结构
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(PORT);
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
+
+    // 绑定套接字
+    if (bind(serverSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) != 0) {
+        perror("Bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 监听
+    if (listen(serverSocket, 1) != 0) {
+        perror("Listen failed");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("The server is ready to receive\n");
+
+    // 接受客户端连接
+    addr_size = sizeof(clientAddr);
+    clientSocket = accept(serverSocket, (struct sockaddr *) &clientAddr, &addr_size);
+    if (clientSocket < 0) {
+        perror("Accept failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 接收数据
+    recv(clientSocket, buffer, BUFFER_SIZE, 0);
+    printf("Received: %s\n", buffer);
+
+    // 转换为大写并发送回客户端
+    for (int i = 0; buffer[i]; i++) {
+        buffer[i] = toupper(buffer[i]);
+    }
+    send(clientSocket, buffer, strlen(buffer), 0);
+
+    // 关闭套接字
+    close(clientSocket);
+    close(serverSocket);
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 12000
+#define BUFFER_SIZE 1024
+
+int main() {
+    int clientSocket;
+    struct sockaddr_in serverAddr;
+    char buffer[BUFFER_SIZE];
+    char message[BUFFER_SIZE];
+
+    // 创建套接字
+    clientSocket = socket(PF_INET, SOCK_STREAM, 0);
+    if (clientSocket < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 配置服务器地址结构
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(PORT);
+    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
+
+    // 连接到服务器
+    if (connect(clientSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) != 0) {
+        perror("Connection failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 输入并发送数据
+    printf("Input lowercase sentence: ");
+    fgets(message, BUFFER_SIZE, stdin);
+    send(clientSocket, message, strlen(message), 0);
+
+    // 接收服务器响应
+    recv(clientSocket, buffer, BUFFER_SIZE, 0);
+    printf("From Server: %s\n", buffer);
+
+    // 关闭套接字
+    close(clientSocket);
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#!/bin/bash
+
+### A simple TCP demo script ###
+
+set -euC
+
+tmux rename-window "TCP demo"
+
+#    Window setup
+# +--------+--------+
+# | server | client |
+# +--------+--------+
+# |      watch      |
+# +-----------------+
+# |     tcpdump     |
+# +-----------------+
+#
+tmux split-window -h
+tmux split-window -fl99
+tmux split-window -l12
+
+tmux send-keys -t{top-left} "gcc tcpServer.c -o tcpServer && ./tcpServer" C-m
+tmux send-keys -t{top-right} "gcc tcpClient.c -o tcpClient && ./tcpClient" C-m
+tmux send-keys -t{up-of} "watch -tn.1 'ss -ant \"( sport == 12000 or dport == 12000 )\"'" C-m
+tmux send-keys "sudo tcpdump -ilo -vvvnnxXSK -s0 port 12000" C-m
